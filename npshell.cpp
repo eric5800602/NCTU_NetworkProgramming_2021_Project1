@@ -34,42 +34,87 @@ int CheckPIPE(string input){
 	return 0;
 }
 
+struct npipe{
+	int in;
+	int out;
+	int num;
+};
+vector<npipe> numberpipe_vector;//can't be stored...
 int ParseCMD(vector<string> input){
 	string cmd;
 	size_t pos = 0;
-	//string numpipe_delim = "|";
+	bool has_numberpipe = false;
+	string numpipe_delim = "|";
+	int number_pipe = 0;
 	// Create pipe whose num = 2 * count of cmd
 	int pipes[2*input.size()];
-	for(int i = 0;i < 2*input.size();++i){
+	// Create pipe for number pipe, last one is for number
+	int numberpipe[3] = {0};
+	for(int i = 0;i < input.size();++i){
 		pipe(pipes + i*2);
 	}
 	for(int i = 0;i < input.size();++i){
 		istringstream iss(input[i]);
 		vector<string> parm;
 		while(getline(iss,cmd,' ')){
-			//if still find "|" means pipe with number
-			//if((pos = cmd.find(numpipe_delim)) != string::npos) contine;
+			//if still find "|" means pipe with number,and record the number
+			if((pos = cmd.find(numpipe_delim)) != string::npos){
+				pipe(numberpipe);
+				numberpipe[2] = atoi(cmd.erase(0,pos+numpipe_delim.length()).c_str());
+				npipe np = {numberpipe[0],numberpipe[1],numberpipe[2]};
+				numberpipe_vector.push_back(np);
+				has_numberpipe = true;
+				continue;
+			}
 			parm.push_back(cmd);
 		}
 		pid_t cpid;
 		int status;
 		cpid = fork();
 		if(cpid != 0){
-			//Check fork indormation
+			//Check fork information
 			//cout << "fork " << cpid << endl;
 			if(i != 0){
 				close(pipes[(i-1)*2]);
 				close(pipes[(i-1)*2+1]);
 			}
 			waitpid(cpid,&status,0);
+			//numberpipe reciever close
+			for(int j = 0;j < numberpipe_vector.size();++j){
+				 numberpipe_vector[j].num--;
+				//numberpipe erase
+				if(numberpipe_vector[j].num < 0){
+					close(numberpipe_vector[j].in);
+					close(numberpipe_vector[j].out);	
+					numberpipe_vector.erase(numberpipe_vector.begin() + j);
+					j--;
+					cout << "del" << endl;
+				}
+			}
 		}
 		else{
+			//numberpipe recieve
+			if(i == 0){
+				for(int j = 0;j < numberpipe_vector.size();++j){
+					if(numberpipe_vector[j].num == 0){
+						dup2(numberpipe_vector[j].in,STDIN_FILENO);
+						close(numberpipe_vector[j].in);
+						close(numberpipe_vector[j].out);
+					}
+				}	
+			}
 			//connect pipes of each child process
 			if(i != 0){
 				dup2(pipes[(i-1)*2],STDIN_FILENO);
 			}
 			if(i != input.size()-1){
 				dup2(pipes[i*2+1],STDOUT_FILENO);
+			}
+			//numberpipe send
+			if(i == input.size()-1 && has_numberpipe){
+				dup2(numberpipe_vector[numberpipe_vector.size()-1].out,STDOUT_FILENO);
+				close(numberpipe_vector[numberpipe_vector.size()-1].in);
+				close(numberpipe_vector[numberpipe_vector.size()-1].out);
 			}
 			for(int j = 0;j < 2*input.size();++j)
 				close(pipes[j]);
@@ -92,7 +137,7 @@ int EXECCMD(vector<string> parm){
 	else if(parm[0] == "exit"){
 		exit(0);
 	
-	}
+	}	
 	int fd;
 	bool file_redirection = false;	
 	const char **argv = new const char* [parm.size()+1];
@@ -133,7 +178,9 @@ int main(){
 				cout << endl;
 				return 0;
 			}
-		if(CheckPIPE(input)== -1) return 0;
+		if(CheckPIPE(input)== -1){
+			return 0;
+		}
 	}	
 	return 0;
 }
