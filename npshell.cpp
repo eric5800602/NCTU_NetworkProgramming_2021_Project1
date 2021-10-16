@@ -7,10 +7,17 @@
 #include <vector>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <poll.h>
+#include <memory.h>
 
 using namespace std;
 int EXECCMD(vector<string>);
 int ParseCMD(vector<string>);
+
+void HandleChild(int sig){
+	int status;
+	while(waitpid(-1,&status,WNOHANG) > 0){}
+}
 
 void SETENV(string name,string val){
 	setenv(name.c_str(),val.c_str(),1);
@@ -19,6 +26,20 @@ void SETENV(string name,string val){
 void PRINTENV(string name){
 	char *val = getenv(name.c_str());
 	if(val) cout << val << endl;
+}
+
+bool CheckPipeHasContent(int fd){
+	struct pollfd fdtab[1];
+	memset (fdtab, 0, sizeof(fdtab));
+	fdtab[0].fd = fd;
+	fdtab[0].events = POLLIN;
+	fdtab[0].revents = 0;
+	int retpoll = poll(fdtab, 1, 100);
+	if(retpoll > 0)
+		if(fdtab[0].revents & POLLIN)
+			return true;
+	perror("poll fail");
+	return false;
 }
 
 int CheckPIPE(string input){
@@ -39,7 +60,10 @@ struct npipe{
 	int out;
 	int num;
 };
-vector<npipe> numberpipe_vector;//can't be stored...
+
+//used to store numberpipe
+vector<npipe> numberpipe_vector;
+
 int ParseCMD(vector<string> input){
 	string cmd;
 	size_t pos = 0;
@@ -68,6 +92,7 @@ int ParseCMD(vector<string> input){
 			}
 			parm.push_back(cmd);
 		}
+		signal(SIGCHLD, HandleChild);
 		pid_t cpid;
 		int status;
 		cpid = fork();
@@ -78,7 +103,6 @@ int ParseCMD(vector<string> input){
 				close(pipes[(i-1)*2]);
 				close(pipes[(i-1)*2+1]);
 			}
-			waitpid(cpid,&status,0);
 			//numberpipe reciever close
 			for(int j = 0;j < numberpipe_vector.size();++j){
 				 numberpipe_vector[j].num--;
@@ -88,20 +112,44 @@ int ParseCMD(vector<string> input){
 					close(numberpipe_vector[j].out);	
 					numberpipe_vector.erase(numberpipe_vector.begin() + j);
 					j--;
-					cout << "del" << endl;
 				}
 			}
+			waitpid(cpid,&status,0);
 		}
 		else{
 			//numberpipe recieve
 			if(i == 0){
-				for(int j = 0;j < numberpipe_vector.size();++j){
+				bool has_front_pipe = false;
+				int front_fd = 0;
+				for(int j = numberpipe_vector.size()-1;j >= 0;--j){
 					if(numberpipe_vector[j].num == 0){
-						dup2(numberpipe_vector[j].in,STDIN_FILENO);
+						if(has_front_pipe && front_fd != 0){
+							fcntl(front_fd, F_SETFL, O_NONBLOCK);
+							while (1) {
+								char tmp;
+								if (read(front_fd, &tmp, 1) < 1){
+									break;
+								}
+								int rt = write(numberpipe_vector[j].out,&tmp,1);
+								//fprintf(stderr, "rt = %d\n", rt);
+							}
+							has_front_pipe = false;
+							dup2(numberpipe_vector[j].in,STDIN_FILENO);
+							//fprintf(stderr,"%d\n",numberpipe_vector[j].in);
+						}
+						else{
+							dup2(numberpipe_vector[j].in,STDIN_FILENO);
+							front_fd = numberpipe_vector[j].in;
+							has_front_pipe = true;
+						}
+					}
+				}
+				for(int j = 0;j < numberpipe_vector.size();++j)	{
+					if(numberpipe_vector[j].num == 0){
 						close(numberpipe_vector[j].in);
 						close(numberpipe_vector[j].out);
 					}
-				}	
+				}
 			}
 			//connect pipes of each child process
 			if(i != 0){
@@ -112,6 +160,8 @@ int ParseCMD(vector<string> input){
 			}
 			//numberpipe send
 			if(i == input.size()-1 && has_numberpipe){
+				//need to check whether pipe has data
+				//cout << "CheckPIPEContent " << CheckPipeHasContent(numberpipe_vector[numberpipe_vector.size()-1].out);
 				dup2(numberpipe_vector[numberpipe_vector.size()-1].out,STDOUT_FILENO);
 				close(numberpipe_vector[numberpipe_vector.size()-1].in);
 				close(numberpipe_vector[numberpipe_vector.size()-1].out);
