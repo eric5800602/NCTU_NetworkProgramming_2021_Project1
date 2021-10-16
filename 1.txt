@@ -1,0 +1,27 @@
+% bin:.
+% 1.txt
+Makefile
+bin
+noop
+npshell
+npshell.cpp
+npshell.o
+test.cpp
+test.html
+test.txt
+test2.html
+test2.txt
+test3.txt
+% % .
+% % % cat
+ls
+noop
+noop.cpp
+number
+number.cpp
+removetag
+removetag.cpp
+removetag0
+removetag0.cpp
+% % % % DEF
+% 

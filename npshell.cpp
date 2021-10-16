@@ -28,20 +28,40 @@ void PRINTENV(string name){
 	if(val) cout << val << endl;
 }
 
-bool CheckPipeHasContent(int fd){
-	struct pollfd fdtab[1];
-	memset (fdtab, 0, sizeof(fdtab));
-	fdtab[0].fd = fd;
-	fdtab[0].events = POLLIN;
-	fdtab[0].revents = 0;
-	int retpoll = poll(fdtab, 1, 100);
-	if(retpoll > 0)
-		if(fdtab[0].revents & POLLIN)
-			return true;
-	perror("poll fail");
+bool CheckBuiltIn(string input){
+	istringstream iss(input);
+	string cmd;
+	getline(iss,cmd,' ');
+	if(cmd == "printenv"){
+		getline(iss,cmd,' ');
+		PRINTENV(cmd);
+		return true;
+	}else if(cmd == "setenv"){
+		string name,val;
+		getline(iss,name,' ');
+		getline(iss,val,' ');
+		SETENV(name,val);
+		return true;
+	}else if(cmd == "exit"){
+		exit(0);
+		return true;
+	}
 	return false;
 }
 
+bool CheckExecutable(string cmd){
+	istringstream iss(cmd);
+        string input;
+	getline(iss,input,' ');
+	if(input == "printenv" || input == "setenv") return true;
+	string str(getenv("PATH")),path;
+	istringstream issp(str);
+	while(getline(issp,path,':')){
+		path = path + "/" + input;
+		if(access(path.c_str(),0) == 0) return true;
+	}
+	return false;
+}
 int CheckPIPE(string input){
 	vector<string> cmds;
 	string delim = " | ";
@@ -50,6 +70,7 @@ int CheckPIPE(string input){
 		cmds.push_back(input.substr(0,pos));
 		input.erase(0,pos + delim.length());
 	}
+	CheckBuiltIn(input);
 	cmds.push_back(input);
 	ParseCMD(cmds);
 	return 0;
@@ -65,17 +86,26 @@ struct npipe{
 vector<npipe> numberpipe_vector;
 
 int ParseCMD(vector<string> input){
-	string cmd;
 	size_t pos = 0;
 	bool has_numberpipe = false,has_errpipe = false;
 	string numpipe_delim = "|";
 	string errpipe_delim = "!";
+	vector<int> unknown_cmd;
 	// Create pipe whose num = 2 * count of cmd
 	int pipes[2*input.size()];
 	for(int i = 0;i < input.size();++i){
 		pipe(pipes + i*2);
 	}
+	for(int i = 0;i < input.size()-1;++i){
+		string cmd;
+		istringstream iss(input[i]);
+		getline(iss,cmd,' ');
+		if(!CheckExecutable(cmd)){
+			unknown_cmd.push_back(i);
+		}
+	}
 	for(int i = 0;i < input.size();++i){
+		string cmd;
 		istringstream iss(input[i]);
 		vector<string> parm;
 		// Create pipe for number pipe, last one is for number
@@ -107,6 +137,11 @@ int ParseCMD(vector<string> input){
 		pid_t cpid;
 		int status;
 		cpid = fork();
+		while (cpid < 0)
+		{
+			usleep(1000);
+			cpid = fork();
+		}
 		if(cpid != 0){
 			//Check fork information
 			//cout << "fork " << cpid << endl;
@@ -116,7 +151,7 @@ int ParseCMD(vector<string> input){
 			}
 			//numberpipe reciever close
 			for(int j = 0;j < numberpipe_vector.size();++j){
-				 numberpipe_vector[j].num--;
+				numberpipe_vector[j].num--;
 				//numberpipe erase
 				if(numberpipe_vector[j].num < 0){
 					close(numberpipe_vector[j].in);
@@ -134,6 +169,7 @@ int ParseCMD(vector<string> input){
 				int front_fd = 0;
 				for(int j = numberpipe_vector.size()-1;j >= 0;--j){
 					if(numberpipe_vector[j].num == 0){
+						//merge pipe content
 						if(has_front_pipe && front_fd != 0){
 							fcntl(front_fd, F_SETFL, O_NONBLOCK);
 							while (1) {
@@ -190,19 +226,6 @@ int ParseCMD(vector<string> input){
 }
 
 int EXECCMD(vector<string> parm){
-	/*Built in cmd*/
-	if(parm[0] == "setenv"){
-		SETENV(parm[1],parm[2]);
-		return 0;
-	}
-	else if(parm[0] == "printenv"){
-		PRINTENV(parm[1]);
-		return 0;
-	}
-	else if(parm[0] == "exit"){
-		exit(0);
-	
-	}	
 	int fd;
 	bool file_redirection = false;	
 	const char **argv = new const char* [parm.size()+1];
@@ -225,6 +248,11 @@ int EXECCMD(vector<string> parm){
 		close(fd);
 	}
 	if(execvp(parm[0].c_str(),(char **)argv) == -1){
+		//stderr for unknown command
+		if(parm[0] != "setenv" && parm[0] != "printenv" && parm[0] != "exit")
+			fprintf(stderr,"Unknown command: [%s].\n",parm[0].c_str());
+		char *argv[] = {(char*)NULL};
+		execv("./bin/noop", argv);
 		return -1;
 	}
 	return 0;
@@ -243,7 +271,8 @@ int main(){
 				cout << endl;
 				return 0;
 			}
-		if(CheckPIPE(input)== -1){
+		if(input.empty()) continue;
+		if(CheckPIPE(input)  == -1){
 			return 0;
 		}
 	}	
