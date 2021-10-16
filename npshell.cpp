@@ -67,25 +67,36 @@ vector<npipe> numberpipe_vector;
 int ParseCMD(vector<string> input){
 	string cmd;
 	size_t pos = 0;
-	bool has_numberpipe = false;
+	bool has_numberpipe = false,has_errpipe = false;
 	string numpipe_delim = "|";
-	int number_pipe = 0;
+	string errpipe_delim = "!";
 	// Create pipe whose num = 2 * count of cmd
 	int pipes[2*input.size()];
-	// Create pipe for number pipe, last one is for number
-	int numberpipe[3] = {0};
 	for(int i = 0;i < input.size();++i){
 		pipe(pipes + i*2);
 	}
 	for(int i = 0;i < input.size();++i){
 		istringstream iss(input[i]);
 		vector<string> parm;
+		// Create pipe for number pipe, last one is for number
 		while(getline(iss,cmd,' ')){
-			//if still find "|" means pipe with number,and record the number
-			if((pos = cmd.find(numpipe_delim)) != string::npos){
+			//if still find "!" means errorpipe with number,and record the number
+			if((pos = cmd.find(errpipe_delim)) != string::npos){
+				int numberpipe[2];
 				pipe(numberpipe);
-				numberpipe[2] = atoi(cmd.erase(0,pos+numpipe_delim.length()).c_str());
-				npipe np = {numberpipe[0],numberpipe[1],numberpipe[2]};
+				int tmpnum = atoi(cmd.erase(0,pos+numpipe_delim.length()).c_str());
+				npipe np = {numberpipe[0],numberpipe[1],tmpnum};
+				numberpipe_vector.push_back(np);
+				has_errpipe = true;
+				continue;
+			}
+
+			//if still find "|" means numberpipe with number,and record the number
+			if((pos = cmd.find(numpipe_delim)) != string::npos){
+				int numberpipe[2];
+				pipe(numberpipe);
+				int tmpnum = atoi(cmd.erase(0,pos+numpipe_delim.length()).c_str());
+				npipe np = {numberpipe[0],numberpipe[1],tmpnum};
 				numberpipe_vector.push_back(np);
 				has_numberpipe = true;
 				continue;
@@ -160,8 +171,12 @@ int ParseCMD(vector<string> input){
 			}
 			//numberpipe send
 			if(i == input.size()-1 && has_numberpipe){
-				//need to check whether pipe has data
-				//cout << "CheckPIPEContent " << CheckPipeHasContent(numberpipe_vector[numberpipe_vector.size()-1].out);
+				dup2(numberpipe_vector[numberpipe_vector.size()-1].out,STDOUT_FILENO);
+				close(numberpipe_vector[numberpipe_vector.size()-1].in);
+				close(numberpipe_vector[numberpipe_vector.size()-1].out);
+			}
+			if(i == input.size()-1 && has_errpipe){
+				dup2(numberpipe_vector[numberpipe_vector.size()-1].out,STDERR_FILENO);
 				dup2(numberpipe_vector[numberpipe_vector.size()-1].out,STDOUT_FILENO);
 				close(numberpipe_vector[numberpipe_vector.size()-1].in);
 				close(numberpipe_vector[numberpipe_vector.size()-1].out);
