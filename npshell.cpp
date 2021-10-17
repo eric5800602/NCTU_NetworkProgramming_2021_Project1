@@ -152,7 +152,6 @@ int ParseCMD(vector<string> input){
 		cpid = fork();
 		while (cpid < 0)
 		{
-			cerr << "fork error" << endl;
 			usleep(1000);
 			cpid = fork();
 		}
@@ -175,7 +174,8 @@ int ParseCMD(vector<string> input){
 					j--;
 				}
 			}
-			waitpid(cpid,&status,0);
+			if(input.size() == 1||(i == input.size()-1 && numberpipe_vector.empty()))
+				waitpid(cpid,&status,0);
 		}
 		/* Child */
 		else{
