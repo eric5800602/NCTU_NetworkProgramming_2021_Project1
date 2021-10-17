@@ -1,6 +1,5 @@
-removetag0 test.html |4
-noop
-noop
-noop
-number | cat
-exit
+
+Test
+This is a test program
+for ras.
+

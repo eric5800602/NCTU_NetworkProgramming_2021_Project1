@@ -7,8 +7,6 @@
 #include <vector>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <poll.h>
-#include <memory.h>
 
 using namespace std;
 int EXECCMD(vector<string>);
@@ -99,18 +97,7 @@ int ParseCMD(vector<string> input){
 	size_t pos = 0;
 	bool has_numberpipe = false,has_errpipe = false;
 	string numpipe_delim = "|";
-	string errpipe_delim = "!";
-	/*
-	int pipes[2*input.size()];
-	// Create pipe whose num = 2 * count of cmd
-	for(int i = 0;i < input.size()-1;++i){
-		pipe(pipes + i*2);
-		npipe np = {pipes[i*2],pipes[i*2+1],0};
-		pipe_vector.push_back(np);
-		cerr << pipes[i*2] << endl;
-		cerr << pipes[i*2+1] << endl;
-	}
-	*/
+	string errpipe_delim = "!";	
 	for(int i = 0;i < input.size();++i){
 		string cmd;
 		istringstream iss(input[i]);
@@ -174,7 +161,7 @@ int ParseCMD(vector<string> input){
 					j--;
 				}
 			}
-			if(input.size() == 1||(i == input.size()-1 && numberpipe_vector.empty()))
+			if((input.size() == 1||i == input.size()-1) && numberpipe_vector.empty())
 				waitpid(cpid,&status,0);
 		}
 		/* Child */
