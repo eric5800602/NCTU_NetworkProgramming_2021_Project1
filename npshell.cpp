@@ -93,6 +93,14 @@ void CreatePipe(int in,int out,int num){
 	pipe_vector.push_back(np);
 }
 
+bool isWhitespace(string s){
+    for(int index = 0; index < s.length(); index++){
+        if(!isspace(s[index]))
+            return false;
+    }
+    return true;
+}
+
 int ParseCMD(vector<string> input){
 	size_t pos = 0;
 	bool has_numberpipe = false,has_errpipe = false;
@@ -104,6 +112,7 @@ int ParseCMD(vector<string> input){
 		vector<string> parm;
 		// Create pipe for number pipe, last one is for number
 		while(getline(iss,cmd,' ')){
+			if(isWhitespace(cmd)) continue;
 			//if still find "!" means errorpipe with number,and record the number
 			if((pos = cmd.find(errpipe_delim)) != string::npos){
 				int numberpipe[2];
@@ -161,7 +170,7 @@ int ParseCMD(vector<string> input){
 					j--;
 				}
 			}
-			if((input.size() == 1||i == input.size()-1) && numberpipe_vector.empty())
+			if(input.size() == 1||(i == input.size()-1 && numberpipe_vector.empty()))
 				waitpid(cpid,&status,0);
 		}
 		/* Child */
