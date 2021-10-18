@@ -48,19 +48,6 @@ bool CheckBuiltIn(string input){
 	return false;
 }
 
-bool CheckExecutable(string cmd){
-	istringstream iss(cmd);
-        string input;
-	getline(iss,input,' ');
-	if(input == "printenv" || input == "setenv") return true;
-	string str(getenv("PATH")),path;
-	istringstream issp(str);
-	while(getline(issp,path,':')){
-		path = path + "/" + input;
-		if(access(path.c_str(),0) == 0) return true;
-	}
-	return false;
-}
 int CheckPIPE(string input){
 	vector<string> cmds;
 	string delim = " | ";
@@ -106,7 +93,7 @@ int ParseCMD(vector<string> input){
 	size_t pos = 0;
 	bool has_numberpipe = false,has_errpipe = false;
 	string numpipe_delim = "|";
-	string errpipe_delim = "!";	
+	string errpipe_delim = "!";
 	for(int i = 0;i < input.size();++i){
 		string cmd;
 		istringstream iss(input[i]);
@@ -117,8 +104,17 @@ int ParseCMD(vector<string> input){
 			//if still find "!" means errorpipe with number,and record the number
 			if((pos = cmd.find(errpipe_delim)) != string::npos){
 				int numberpipe[2];
-				pipe(numberpipe);
 				int tmpnum = atoi(cmd.erase(0,pos+numpipe_delim.length()).c_str());
+				for(int j = 0;j < numberpipe_vector.size();++j){
+					if(tmpnum == numberpipe_vector[j].num){
+						numberpipe[0] = numberpipe_vector[j].in;
+						numberpipe[1] = numberpipe_vector[j].out;
+					}
+					else{
+						pipe(numberpipe);
+					}
+				}
+				if(numberpipe_vector.size() == 0) pipe(numberpipe);
 				npipe np = {numberpipe[0],numberpipe[1],tmpnum};
 				numberpipe_vector.push_back(np);
 				has_errpipe = true;
@@ -128,8 +124,17 @@ int ParseCMD(vector<string> input){
 			//if still find "|" means numberpipe with number,and record the number
 			if((pos = cmd.find(numpipe_delim)) != string::npos){
 				int numberpipe[2];
-				pipe(numberpipe);
 				int tmpnum = atoi(cmd.erase(0,pos+numpipe_delim.length()).c_str());
+				for(int j = 0;j < numberpipe_vector.size();++j){
+					if(tmpnum == numberpipe_vector[j].num){
+						numberpipe[0] = numberpipe_vector[j].in;
+						numberpipe[1] = numberpipe_vector[j].out;
+					}
+					else{
+						pipe(numberpipe);
+					}
+				}
+				if(numberpipe_vector.size() == 0) pipe(numberpipe);
 				npipe np = {numberpipe[0],numberpipe[1],tmpnum};
 				numberpipe_vector.push_back(np);
 				has_numberpipe = true;
@@ -183,8 +188,7 @@ int ParseCMD(vector<string> input){
 				int front_fd = 0;
 				for(int j = numberpipe_vector.size()-1;j >= 0;--j){
 					if(numberpipe_vector[j].num == 0){
-						//merge pipe content
-						if(has_front_pipe && front_fd != 0){
+						if(has_front_pipe && front_fd != 0 && front_fd != numberpipe_vector[j].in){
 							fcntl(front_fd, F_SETFL, O_NONBLOCK);
 							while (1) {
 								char tmp;
@@ -192,11 +196,10 @@ int ParseCMD(vector<string> input){
 									break;
 								}
 								int rt = write(numberpipe_vector[j].out,&tmp,1);
-								//fprintf(stderr, "rt = %d\n", rt);
+
 							}
 							has_front_pipe = false;
 							dup2(numberpipe_vector[j].in,STDIN_FILENO);
-							//fprintf(stderr,"%d\n",numberpipe_vector[j].in);
 						}
 						else{
 							dup2(numberpipe_vector[j].in,STDIN_FILENO);
