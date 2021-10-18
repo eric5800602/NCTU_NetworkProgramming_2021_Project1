@@ -14,7 +14,8 @@ int ParseCMD(vector<string>);
 
 void HandleChild(int sig){
 	int status;
-	while(waitpid(-1,&status,WNOHANG) > 0){}
+	while(waitpid(-1,&status,WNOHANG) > 0){
+	}
 }
 
 void SETENV(string name,string val){
@@ -170,8 +171,9 @@ int ParseCMD(vector<string> input){
 					j--;
 				}
 			}
-			if(input.size() == 1||(i == input.size()-1 && numberpipe_vector.empty()))
+			if(i == input.size()-1 && numberpipe_vector.empty()){
 				waitpid(cpid,&status,0);
+			}
 		}
 		/* Child */
 		else{
@@ -290,6 +292,7 @@ int main(){
 		if(CheckPIPE(input)  == -1){
 			return 0;
 		}
+		usleep(50000);
 	}	
 	return 0;
 }
