@@ -3,11 +3,9 @@
    3 npshell
    4 npshell.cpp
    5 npshell.o
-   6 output
-   7 test.cpp
-   8 test.html
-   9 test.txt
-  10 test1.txt
-  11 test2.html
-  12 test2.txt
-  13 test3.txt
+   6 test.html
+   7 test.txt
+   8 test1.txt
+   9 test2.html
+  10 test2.txt
+  11 test3.txt
