@@ -177,7 +177,7 @@ int ParseCMD(vector<string> input){
 					j--;
 				}
 			}
-			if(i == input.size()-1 && numberpipe_vector.empty()){
+			if(i == input.size()-1 && !(has_numberpipe || has_errpipe)){
 				waitpid(cpid,&status,0);
 			}
 		}
@@ -297,7 +297,6 @@ int main(){
 		if(CheckPIPE(input)  == -1){
 			return 0;
 		}
-		usleep(50000);
 	}	
 	return 0;
 }
