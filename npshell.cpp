@@ -271,8 +271,9 @@ int EXECCMD(vector<string> parm){
 		//stderr for unknown command
 		if(parm[0] != "setenv" && parm[0] != "printenv" && parm[0] != "exit")
 			fprintf(stderr,"Unknown command: [%s].\n",parm[0].c_str());
-		char *argv[] = {(char*)NULL};
-		execv("./bin/noop", argv);
+		exit(0);
+		//char *argv[] = {(char*)NULL};
+		//execv("./bin/noop", argv);
 		return -1;
 	}
 	return 0;
