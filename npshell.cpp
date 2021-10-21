@@ -293,7 +293,7 @@ int main(){
 				cout << endl;
 				return 0;
 			}
-		if(input.empty()) continue;
+		if(input.empty() || isWhitespace(input)) continue;
 		if(CheckPIPE(input)  == -1){
 			return 0;
 		}
